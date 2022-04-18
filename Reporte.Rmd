@@ -1,0 +1,242 @@
+---
+output:
+  pdf_document:
+    extra_dependencies:
+      enumitem: ["shortlabels"]
+      booktabs: null
+      array: null
+      arydshln: null
+      caption: null
+    includes: 
+      before_body: title_page.tex
+---
+
+\renewcommand{\tablename}{Tabla}
+\renewcommand{\figurename}{Figura}
+\captionsetup[figure]{skip=0pt}
+
+```{r librerias, include=FALSE, message=FALSE}
+library(tidyverse)
+library(rio)
+```
+
+# 1 Introducción
+
+El problema a resolver en el siguiente informe es poder dilucidar los problemas que presenta la Tarjeta de Compra Más. En una reunión entre las diferentes partes de la empresa, se presentaron cuatro hipótesis sobre posibles problemas en la TCM.
+
+A continuación se presenta una pequeña vista a los datos entregados, y se explica la metodología a utilizar para estudiar las hipótesis planteadas. Luego, en la sección \textbf{Hipótesis a Cubrir}, se presentan y se estudian las cuatro hipótesis planteadas durante la reunión de la empresa.
+
+Finalmente, en la sección \textbf{Conclusión}, se entrega un resumen de los resultados obtenidos en la sección anterior, y al mismo tiempo se proponen diferentes medidas para mejorar el uso de la TCM.
+
+## 1.1 Datos entregados
+
+```{r carga de datos, include=FALSE, message=FALSE}
+datos_tcm <- rio::import('TCM2022.xlsx')
+datos_tcm_tibble <- tibble::as_tibble(datos_tcm)
+```
+
+## 1.2 Metodología
+
+# 2 Hipótesis a Cubrir
+
+## 2.1 Bajo uso
+
+La primera hipótesis planteada es que el porcentaje de uso de la TCM, en el primer trimestre del 2022, ha disminuido con respecto al uso en el 2021, que corresponde a un 62%.
+
+```{r H1 - uso tarjeta, echo=FALSE}
+n <- nrow(datos_tcm)
+uso_tarjeta_2021 <- 0.62
+uso_tarjeta_2022 <- mean(datos_tcm$Uso2022)
+
+porcentaje_2022 <- paste0(as.character(100*round(uso_tarjeta_2022, 2)), '%')
+```
+
+A partir de los datos vemos que el porcentaje de uso en el año 2022 corresponde a `r porcentaje_2022`. Podemos ver una comparación entre ambas cantidades en la Figura 1.
+
+```{r H1 - comparacion prop, echo=FALSE}
+ggplot(tibble(uso = c(uso_tarjeta_2021, uso_tarjeta_2022),
+              año = c('2021', '2022'))) +
+  geom_col(mapping = aes(x = año, y = uso), fill = c('salmon', 'turquoise')) +
+  geom_text(mapping = aes(x = año, y = uso, label = scales::percent(uso)),
+            position = position_dodge(width = .9),
+            vjust = -0.5, size = 7) +
+  labs(title = 'Uso de tarjeta TCM años 2021 y 2022') +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1))
+```
+
+Aca va el test binomial.
+
+```{r H1 - test binomial exacto, include=FALSE}
+binom.test(x = sum(datos_tcm$Uso2022),
+           n = n,
+           p = uso_tarjeta_2021,
+           alternative = 'less')
+```
+
+En este caso, tiene sentido utilizar una significancia más alta, por ejemplo $0.1$, ya que ...
+
+## 2.2 Montos
+
+Consideramos solo clientes que efectivamente realizaron compras ...
+
+```{r H2 - clientes que compran, echo=FALSE}
+datos_tcm_compras <- datos_tcm_tibble %>% 
+  dplyr::filter(UsoMarzo == 1)
+```
+
+```{r H2 - promedio compras 2022}
+monto_promedio_marzo_2021 <- 400
+
+monto_promedio_marzo_2022 <- datos_tcm_compras %>% 
+  dplyr::summarise(media = mean(MontoMarzo)) %>% 
+  as.numeric()
+```
+
+Obtenemos que el monto promedio en marzo del 2022 es `r round(monto_promedio_marzo_2022, 2)`...
+
+
+Queremos ocupar un test t, por lo que tenemos que ver normalidad...
+
+```{r H2 - supuesto normalidad - densidad, echo=FALSE}
+# Aca podríamos ver cómo combinar dos plots, creo que el paquete patchwork es bueno
+ggplot(datos_tcm_compras) +
+  geom_density(mapping = aes(x = MontoMarzo), fill = 'salmon') +
+  labs(x = 'Monto', y = 'densidad',
+       title = 'Montos de compra en marzo del 2022')
+```
+
+```{r H2 - supuesto normalidad - qqplot, echo=FALSE}
+ggplot(datos_tcm_compras) +
+  geom_qq_line(aes(sample = MontoMarzo), color = "salmon", lwd = 2) +
+  geom_qq(aes(sample = MontoMarzo)) +
+  labs(title = 'Supuesto de normalidad montos de compra', subtitle = 'Marzo 2022',
+       x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
+```
+
+Vemos un test específico para normalidad: Shapiro-Wilk
+
+```{r H2 - test ShapiroWilk, include=FALSE}
+shapiro.test(datos_tcm_compras$MontoMarzo)
+```
+
+No podemos asumir normalidad, por lo que ocupamos un test no paramétrico (Wilcoxon)
+
+```{r H2 - test de Wilcoxon, include = FALSE}
+wilcox.test(x = datos_tcm_compras$MontoMarzo,
+            mu = monto_promedio_marzo_2021,
+            alternative = 'greater')
+```
+
+Ahora, por TCL ocupamos igual el test t, viendo que tenemos resultados parecidos...
+
+```{r H2 - test t, include = FALSE}
+t.test(x = datos_tcm_compras$MontoMarzo,
+       mu = monto_promedio_marzo_2021,
+       alternative = 'greater')
+```
+
+Vemos que en ambos casos rechazamos la hipótesis que el monto del 2022 es menor al del 2021, por lo que aceptamos que fue superior al del 2021...
+
+## 2.3 Antiguos
+
+Segmentamos los clientes en antiguos y nuevos...
+
+```{r H3 - separacion clientes, echo=FALSE}
+clientes_antiguos <- datos_tcm_tibble %>% 
+  dplyr::filter(Cliente < 250000) %>% 
+  dplyr::filter(Uso2022 == 1)
+
+clientes_nuevos <- datos_tcm_tibble %>% 
+  dplyr::filter(Cliente >= 250000) %>% 
+  dplyr::filter(Uso2022 == 1)
+
+n_antiguos <- nrow(clientes_antiguos)
+n_nuevos <- nrow(clientes_nuevos)
+
+media_antiguos <- mean(clientes_antiguos$MontoAcum)
+media_nuevos <- mean(clientes_nuevos$MontoAcum)
+```
+
+En particular, vemos que hay `r n_antiguos` clientes antiguos y `r n_nuevos` clientes nuevos presentes en la base de datos entregada. Además, los montos medios de cada grupo son `r  media_antiguos` y `r media_nuevos`, respectivamente.
+
+Queremos ocupar un test t para dos muestras, así que vemos normalidad...
+
+```{r H3 - supuesto normalidad, echo = FALSE}
+# Acá usemos patchwork para juntar los gráficos
+
+## Densidad antiguos
+ggplot(clientes_antiguos) +
+  geom_density(mapping = aes(x = MontoAcum), fill = 'salmon') +
+  labs(x = 'Monto', y = 'densidad',
+       title = 'Montos de compra en marzo del 2022')
+
+## QQ-plot antiguos
+ggplot(clientes_antiguos) +
+  geom_qq_line(aes(sample = MontoAcum), color = "salmon", lwd = 2) +
+  geom_qq(aes(sample = MontoAcum)) +
+  labs(title = 'Supuesto de normalidad montos de compra', subtitle = 'Marzo 2022',
+       x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
+
+## Densidad nuevos
+ggplot(clientes_nuevos) +
+  geom_density(mapping = aes(x = MontoAcum), fill = 'salmon') +
+  labs(x = 'Monto', y = 'densidad',
+       title = 'Montos de compra en marzo del 2022')
+
+## QQ-plot antiguos
+ggplot(clientes_nuevos) +
+  geom_qq_line(aes(sample = MontoAcum), color = "salmon", lwd = 2) +
+  geom_qq(aes(sample = MontoAcum)) +
+  labs(title = 'Supuesto de normalidad montos de compra', subtitle = 'Marzo 2022',
+       x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
+```
+
+Formalmente, usamos Shapiro-Wilk. En los clientes nuevos además utilizamos el test de Kolmogorov-Smirnov al obtener un valor-p bastante cercano a 0.05...
+
+```{r H3 - supuesto normalidad formal, include=FALSE}
+shapiro.test(clientes_antiguos$MontoAcum)
+
+shapiro.test(clientes_nuevos$MontoAcum)
+ks.test(scale(clientes_nuevos$MontoAcum), y = 'pnorm')
+```
+
+Como no podemos rechazar, seguimos con el test t propuesto, pero primero tenemos que ver si usamos varianzas iguales y desconocidas o diferentes y desconocidas (asumimos que no las conocemos)...
+
+```{r H3 - Test varianzas, include=FALSE}
+var.test(x = clientes_antiguos$MontoAcum,
+         y = clientes_nuevos$MontoAcum,
+         alternative = 'two.sided')
+```
+
+Se rechaza el test, por lo que asumimos varianzas diferentes y desconocidas...
+
+```{r H3 - Test t final, include=FALSE}
+t.test(x = clientes_nuevos$MontoAcum,
+       y = clientes_antiguos$MontoAcum,
+       mu = 100,
+       alternative = 'greater',
+       var.equal = FALSE)
+```
+
+Vemos entonces que no podemos rechazar la hipótesis nula...
+
+## 2.4 Atributos
+
+Agrupamos los datos de edades en los grupos correspondientes...
+
+```{r H3 - agrupacion edades, echo=FALSE}
+datos_tcm_tibble_edadcat <- datos_tcm_tibble %>% 
+  dplyr::mutate(edad_cat = case_when(
+    Edad <= 35 ~ 0,
+    between(Edad, 36, 54) ~ 1,
+    Edad >= 55 ~ 2
+  ))
+```
+
+Acá rellenamos con gráficos si no nos pasamos de las 5 páginas...
+
+Acá van los ANOVAS...
+
+Concluimos
+
+# 3 Conclusión
