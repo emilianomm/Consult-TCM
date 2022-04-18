@@ -72,7 +72,7 @@ porcentaje_2022 <- paste0(as.character(100*round(uso_tarjeta_2022, 2)), '%')
 
 A partir de los datos vemos que el porcentaje de uso en el año 2022 corresponde a `r porcentaje_2022`. Podemos ver una comparación entre ambas cantidades en la Figura 1.
 
-```{r H1 - comparacion prop, echo=FALSE}
+```{r H1 - comparacion prop, echo=FALSE, out.width="61%", fig.height=3, fig.align='center'}
 ggplot(tibble(uso = c(uso_tarjeta_2021, uso_tarjeta_2022),
               año = c('2021', '2022'))) +
   geom_col(mapping = aes(x = año, y = uso), fill = c('salmon', 'turquoise')) +
@@ -131,7 +131,7 @@ dens1 = ggplot(datos_tcm_compras) +
        subtitle = "Montos compras, marzo 2022")
 ```
 
-```{r H2 - supuesto normalidad - qqplot, echo=FALSE, fig.cap="Test gráficos para normalidad media montos compra"}
+```{r H2 - supuesto normalidad - qqplot, echo=FALSE, fig.cap="Test gráficos para normalidad media montos compra", fig.height=3}
 qq1 = ggplot(datos_tcm_compras) +
   geom_qq_line(aes(sample = MontoMarzo), color = "salmon", lwd = 2) +
   geom_qq(aes(sample = MontoMarzo)) +
@@ -240,28 +240,25 @@ shapiro.test(clientes_nuevos$MontoAcum)
 ks.test(scale(clientes_nuevos$MontoAcum), y = 'pnorm')
 ```
 
-No se encuentra evidencia para rechazar normalaidad. En consecuencia se aplica un _test-t_ para estdudiar la diferencia de medias.
-
-Primero tenemos que ver si usamos varianzas iguales y desconocidas o diferentes y desconocidas.
+No se encuentra evidencia para rechazar normalaidad. En consecuencia se aplica un _test-t_ para estdudiar la diferencia de medias. Se asume que las varianzas son desconocidas. Tenemos que ver si usamos varianzas iguales y desconocidas o diferentes y desconocidas mediante la función de R `var.test`
 
 ```{r H3 - Test varianzas, include=FALSE}
 test_var = var.test(x = clientes_antiguos$MontoAcum,
          y = clientes_nuevos$MontoAcum,
          alternative = 'two.sided')
-
 ```
 
-Se rechaza el test con un valor-P `r  test_var$p.value %>% round(digits = 4)`, por lo que trabajamos varianzas diferentes. Se asume que las varianzas son desconocidas.
+Se rechaza dicho test con un valor-P = `r  test_var$p.value %>% round(digits = 4)`, por lo que trabajamos varianzas diferentes. 
 
 ```{r H3 - Test t final, include=FALSE}
-t.test(x = clientes_nuevos$MontoAcum,
+test_t_final = t.test(x = clientes_nuevos$MontoAcum,
        y = clientes_antiguos$MontoAcum,
        mu = 100,
        alternative = 'greater',
        var.equal = FALSE)
 ```
 
-Vemos entonces que no podemos rechazar la hipótesis nula...
+Vemos entonces que no podemos rechazar la hipótesis nula, pues encontramos en el _test-t_ un valor-P =  `r test_t_final$p.value %>%  round(digits = 4)`.
 
 ## 2.4 Atributos
 
