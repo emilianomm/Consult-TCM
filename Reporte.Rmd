@@ -18,6 +18,7 @@ output:
 ```{r librerias, include=FALSE, message=FALSE}
 library(tidyverse)
 library(rio)
+library(patchwork)
 ```
 
 # 1 Introducción
@@ -123,18 +124,24 @@ En las siguientes figuras se estudia el supuesto de normalidad de manera gráfic
 
 ```{r H2 - supuesto normalidad - densidad, echo=FALSE}
 # Aca podríamos ver cómo combinar dos plots, creo que el paquete patchwork es bueno
-ggplot(datos_tcm_compras) +
+dens1 = ggplot(datos_tcm_compras) +
   geom_density(mapping = aes(x = MontoMarzo), fill = 'salmon') +
   labs(x = 'Monto', y = 'densidad',
-       title = 'Montos de compra en marzo del 2022')
+       title = 'Densidad estimada',
+       subtitle = "Montos compras, marzo 2022")
 ```
 
-```{r H2 - supuesto normalidad - qqplot, echo=FALSE}
-ggplot(datos_tcm_compras) +
+```{r H2 - supuesto normalidad - qqplot, echo=FALSE, fig.cap="Test gráficos para normalidad media montos compra"}
+qq1 = ggplot(datos_tcm_compras) +
   geom_qq_line(aes(sample = MontoMarzo), color = "salmon", lwd = 2) +
   geom_qq(aes(sample = MontoMarzo)) +
-  labs(title = 'Supuesto de normalidad montos de compra', subtitle = 'Marzo 2022',
+  labs(title = 'QQ-Norm montos compra', subtitle = 'Marzo 2022',
        x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
+
+# grafico final
+
+dens1 + qq1
+
 ```
 
 Ahora se complementa el análisis gráfico con un test específico para normalidad: Shapiro-Wilk
@@ -159,15 +166,14 @@ test_diff_t = t.test(x = datos_tcm_compras$MontoMarzo,
        alternative = 'greater')
 ```
 
-Ahora, en favor de la comparación, aplicamos un test t. Si asumimos que el tamaño de muestra es lo suficientemente grande, la aplicación de este test se valida con resultados asintóticos. Se observan resultados parecidos consecuentes en ambos test, pues para para el _test-t_ el valor -P  es `r test_diff_t$p.value %>% round(digits = 4)`   
-
+Ahora, en favor de la comparación, aplicamos un test t. Si asumimos que el tamaño de muestra es lo suficientemente grande, la aplicación de este test se valida con resultados asintóticos. Se observan resultados consecuentes en ambos test, pues para para el _test-t_ el valor -P  es `r test_diff_t$p.value %>% round(digits = 4)`
 
 
 Vemos que en ambos casos rechazamos la hipótesis que el monto del 2022 es menor al del 2021, por lo que aceptamos que fue superior al del 2021...
 
 ## 2.3 Antiguos
 
-Segmentamos los clientes en antiguos y nuevos...
+En esta sección se estudia la hipótesis de que la diferencia en los montos medios tranzados por clientes antiguos y nuevos es de cien mil. Para eso, segmentamos en clientes antiguos y nuevos. De manera similar como en la sección _2.2_, no consideramos clientes que no registran uso de su tarjeta en el periodo examinado.
 
 ```{r H3 - separacion clientes, echo=FALSE}
 clientes_antiguos <- datos_tcm_tibble %>% 
@@ -185,41 +191,47 @@ media_antiguos <- mean(clientes_antiguos$MontoAcum)
 media_nuevos <- mean(clientes_nuevos$MontoAcum)
 ```
 
-En particular, vemos que hay `r n_antiguos` clientes antiguos y `r n_nuevos` clientes nuevos presentes en la base de datos entregada. Además, los montos medios de cada grupo son `r  media_antiguos` y `r media_nuevos`, respectivamente.
+Tenemos que hay `r n_antiguos` clientes antiguos y `r n_nuevos` clientes nuevos presentes en la base de datos entregada. Además, los montos medios de cada grupo son `r  media_antiguos %>% round(digits = 4)` y `r media_nuevos %>% round(digits = 4)`, respectivamente.
 
 Queremos ocupar un test t para dos muestras, así que vemos normalidad...
 
-```{r H3 - supuesto normalidad, echo = FALSE}
+Ahora se estudia si los datos siguen una distribución Normal mediante métodos gráficos: primero por estimación kernel y luego mediante QQ-plot.
+
+```{r H3 - supuesto normalidad, echo = FALSE, fig.cap="Test gráficos de normalidad media montos compra por segmento"}
 # Acá usemos patchwork para juntar los gráficos
 
 ## Densidad antiguos
-ggplot(clientes_antiguos) +
+dens2_antiguos = ggplot(clientes_antiguos) +
   geom_density(mapping = aes(x = MontoAcum), fill = 'salmon') +
   labs(x = 'Monto', y = 'densidad',
-       title = 'Montos de compra en marzo del 2022')
+       title = 'Densidad montos compra',
+       subtitle = 'Marzo 2022, clientes antiguos')
 
 ## QQ-plot antiguos
-ggplot(clientes_antiguos) +
+qq2_antiguos = ggplot(clientes_antiguos) +
   geom_qq_line(aes(sample = MontoAcum), color = "salmon", lwd = 2) +
   geom_qq(aes(sample = MontoAcum)) +
-  labs(title = 'Supuesto de normalidad montos de compra', subtitle = 'Marzo 2022',
+  labs(title = 'QQ-Plot montos compra', subtitle = 'Marzo 2022, clientes antiguos',
        x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
 
 ## Densidad nuevos
-ggplot(clientes_nuevos) +
+dens2_nvos = ggplot(clientes_nuevos) +
   geom_density(mapping = aes(x = MontoAcum), fill = 'salmon') +
   labs(x = 'Monto', y = 'densidad',
-       title = 'Montos de compra en marzo del 2022')
+       title = 'Densidad montos compra',
+       subtitle = 'Marzo 2022, clientes nuevos')
 
 ## QQ-plot antiguos
-ggplot(clientes_nuevos) +
+qq2_nvos = ggplot(clientes_nuevos) +
   geom_qq_line(aes(sample = MontoAcum), color = "salmon", lwd = 2) +
   geom_qq(aes(sample = MontoAcum)) +
-  labs(title = 'Supuesto de normalidad montos de compra', subtitle = 'Marzo 2022',
+  labs(title = 'QQ-Plot montos compra', subtitle = 'Marzo 2022, clientes nuevos',
        x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
+
+(dens2_antiguos + qq2_antiguos) / (dens2_nvos + qq2_nvos)
 ```
 
-Formalmente, usamos Shapiro-Wilk. En los clientes nuevos además utilizamos el test de Kolmogorov-Smirnov al obtener un valor-p bastante cercano a 0.05...
+De manera similar como en la seccion _2.2_, se confirman los hallazgos con test formales: usamos Shapiro-Wilk. En los clientes nuevos además utilizamos el test de Kolmogorov-Smirnov al obtener un valor-p bastante cercano a 0.05...
 
 ```{r H3 - supuesto normalidad formal, include=FALSE}
 shapiro.test(clientes_antiguos$MontoAcum)
@@ -228,15 +240,18 @@ shapiro.test(clientes_nuevos$MontoAcum)
 ks.test(scale(clientes_nuevos$MontoAcum), y = 'pnorm')
 ```
 
-Como no podemos rechazar, seguimos con el test t propuesto, pero primero tenemos que ver si usamos varianzas iguales y desconocidas o diferentes y desconocidas (asumimos que no las conocemos)...
+No se encuentra evidencia para rechazar normalaidad. En consecuencia se aplica un _test-t_ para estdudiar la diferencia de medias.
+
+Primero tenemos que ver si usamos varianzas iguales y desconocidas o diferentes y desconocidas.
 
 ```{r H3 - Test varianzas, include=FALSE}
-var.test(x = clientes_antiguos$MontoAcum,
+test_var = var.test(x = clientes_antiguos$MontoAcum,
          y = clientes_nuevos$MontoAcum,
          alternative = 'two.sided')
+
 ```
 
-Se rechaza el test, por lo que asumimos varianzas diferentes y desconocidas...
+Se rechaza el test con un valor-P `r  test_var$p.value %>% round(digits = 4)`, por lo que trabajamos varianzas diferentes. Se asume que las varianzas son desconocidas.
 
 ```{r H3 - Test t final, include=FALSE}
 t.test(x = clientes_nuevos$MontoAcum,
