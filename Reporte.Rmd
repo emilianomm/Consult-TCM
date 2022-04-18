@@ -30,6 +30,24 @@ Finalmente, en la sección \textbf{Conclusión}, se entrega un resumen de los re
 
 ## 1.1 Datos entregados
 
+La base de datos con la que se trabaja corresponde al registro de 450 clientes para los cuales se tienen los siguientes atributos:
+
+- Cliente: Identificador único
+
+- Edad:
+
+- Sex:
+
+- Reg:
+
+- Uso2022:
+
+- UsoMarzo
+
+- MontoMarzo
+
+- MontoAcum
+
 ```{r carga de datos, include=FALSE, message=FALSE}
 datos_tcm <- rio::import('TCM2022.xlsx')
 datos_tcm_tibble <- tibble::as_tibble(datos_tcm)
@@ -64,7 +82,9 @@ ggplot(tibble(uso = c(uso_tarjeta_2021, uso_tarjeta_2022),
   scale_y_continuous(labels = scales::percent, limits = c(0, 1))
 ```
 
-Aca va el test binomial.
+Se puede observar en el gráfico que efectivamente el uso de la tarjeta parece ser menor para el primer trimestre de 2022 en comparación con el mismo periodo en el año 2021.
+
+Ahora, proponemos un test binomial exacto para confirmar si hallazgos son significativos. Este test es adecuado pues permite establecer si una muestra de datos binarios proviene de una población con proporción menor a un valor dado.
 
 ```{r H1 - test binomial exacto, include=FALSE}
 binom.test(x = sum(datos_tcm$Uso2022),
@@ -73,11 +93,14 @@ binom.test(x = sum(datos_tcm$Uso2022),
            alternative = 'less')
 ```
 
-En este caso, tiene sentido utilizar una significancia más alta, por ejemplo $0.1$, ya que ...
+Si relajamos algunas exigencias, en particular el nivel de significancia a un $10\%$, concluimos que hay evidencia en favor de que la disminución en el uso de la tarjeta es estadísticamente significativa.
 
 ## 2.2 Montos
 
-Consideramos solo clientes que efectivamente realizaron compras ...
+En esta sección se estudia la hipótesis de que el monto promedio utilizado en el mes de Marzo  de 2022 es mayor al monto promedio utilizado en el mismo mes del año 2021.
+
+
+Para esto, primero calculamos este promedio para cada mes. Notamos que existe una cantidad importante de clientes con monto 0. Esto se debe a que hay clientes que no utilizan su tarjeta durante Marzo 2022. Para este análisis, solo se considera el monto tranzado por clientes que sí registran uso en su tarjeta para este mes.
 
 ```{r H2 - clientes que compran, echo=FALSE}
 datos_tcm_compras <- datos_tcm_tibble %>% 
@@ -92,10 +115,11 @@ monto_promedio_marzo_2022 <- datos_tcm_compras %>%
   as.numeric()
 ```
 
-Obtenemos que el monto promedio en marzo del 2022 es `r round(monto_promedio_marzo_2022, 2)`...
+Obtenemos que el monto promedio en marzo del 2022 es `r round(monto_promedio_marzo_2022, 2)`. Ahora se verificará que la diferencia encontrada es estadísticamente significativa.
 
+Una alternativa es utilizar un _test-t_, sin embargo para que los resultados sean válidos se debe asegurar que los datos provienen de una distribución Normal.
 
-Queremos ocupar un test t, por lo que tenemos que ver normalidad...
+En las siguientes figuras se estudia el supuesto de normalidad de manera gráfica mediante estimación de kernel y gráfico QQ.
 
 ```{r H2 - supuesto normalidad - densidad, echo=FALSE}
 # Aca podríamos ver cómo combinar dos plots, creo que el paquete patchwork es bueno
@@ -113,27 +137,31 @@ ggplot(datos_tcm_compras) +
        x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
 ```
 
-Vemos un test específico para normalidad: Shapiro-Wilk
+Ahora se complementa el análisis gráfico con un test específico para normalidad: Shapiro-Wilk
 
 ```{r H2 - test ShapiroWilk, include=FALSE}
-shapiro.test(datos_tcm_compras$MontoMarzo)
+test_norm = shapiro.test(datos_tcm_compras$MontoMarzo)
 ```
 
-No podemos asumir normalidad, por lo que ocupamos un test no paramétrico (Wilcoxon)
+Para el test de Shapiro-Wilk se tiene un Valor-P de `r test_norm$p.value %>% round(digits = 4)`. En consecuencia, no podemos asumir normalidad, por lo que ocupamos un test no paramétrico (Wilcoxon) para establecer la significancia en la diferencia entre el promedio de los montos tranzados en Marzo de 2022 y 2021.
 
 ```{r H2 - test de Wilcoxon, include = FALSE}
-wilcox.test(x = datos_tcm_compras$MontoMarzo,
+test_diff = wilcox.test(x = datos_tcm_compras$MontoMarzo,
             mu = monto_promedio_marzo_2021,
             alternative = 'greater')
 ```
 
-Ahora, por TCL ocupamos igual el test t, viendo que tenemos resultados parecidos...
+Para el test de Wilcoxon se tiene un Valor-P de `r test_diff$p.value %>% round(digits = 4)`. En consecuencia, encontramos que hay evidencia en favor de que la diferencia es significativa.
 
 ```{r H2 - test t, include = FALSE}
-t.test(x = datos_tcm_compras$MontoMarzo,
+test_diff_t = t.test(x = datos_tcm_compras$MontoMarzo,
        mu = monto_promedio_marzo_2021,
        alternative = 'greater')
 ```
+
+Ahora, en favor de la comparación, aplicamos un test t. Si asumimos que el tamaño de muestra es lo suficientemente grande, la aplicación de este test se valida con resultados asintóticos. Se observan resultados parecidos consecuentes en ambos test, pues para para el _test-t_ el valor -P  es `r test_diff_t$p.value %>% round(digits = 4)`   
+
+
 
 Vemos que en ambos casos rechazamos la hipótesis que el monto del 2022 es menor al del 2021, por lo que aceptamos que fue superior al del 2021...
 
