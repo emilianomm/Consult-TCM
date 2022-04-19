@@ -21,46 +21,41 @@ library(rio)
 library(patchwork)
 ```
 
+
 # 1 Introducción
 
-El problema a resolver en el siguiente informe es poder dilucidar los problemas que presenta la Tarjeta de Compra Más. En una reunión entre las diferentes partes de la empresa, se presentaron cuatro hipótesis sobre posibles problemas en la TCM.
+El problema a resolver en el siguiente informe es poder dilucidar y entender los problemas que presenta la Tarjeta de Compra Más. En una reunión entre las diferentes partes de la empresa, se presentaron cuatro hipótesis sobre posibles problemas en la TCM.
 
-A continuación se presenta una pequeña vista a los datos entregados, y se explica la metodología a utilizar para estudiar las hipótesis planteadas. Luego, en la sección \textbf{Hipótesis a Cubrir}, se presentan y se estudian las cuatro hipótesis planteadas durante la reunión de la empresa.
+A continuación se presenta una pequeña vista a los datos entregados, para luego explicar la metodología a utilizar para estudiar las hipótesis planteadas. Luego, en la sección \textbf{Hipótesis a Cubrir}, se presentan y se estudian estás hipótesis, siguiendo la metodología descrita.
 
 Finalmente, en la sección \textbf{Conclusión}, se entrega un resumen de los resultados obtenidos en la sección anterior, y al mismo tiempo se proponen diferentes medidas para mejorar el uso de la TCM.
 
 ## 1.1 Datos entregados
 
-La base de datos con la que se trabaja corresponde al registro de 450 clientes para los cuales se tienen los siguientes atributos:
-
-- Cliente: Identificador único
-
-- Edad:
-
-- Sex:
-
-- Reg:
-
-- Uso2022:
-
-- UsoMarzo
-
-- MontoMarzo
-
-- MontoAcum
-
 ```{r carga de datos, include=FALSE, message=FALSE}
 datos_tcm <- rio::import('TCM2022.xlsx')
 datos_tcm_tibble <- tibble::as_tibble(datos_tcm)
+
+n_obs <- nrow(datos_tcm)
 ```
 
+Para los estudios solicitados, el Departamento de Informática nos hizo llegar una pequeña muestra aleatoria de `r n_obs` clientes, la cual contiene información histórica y los atributos necesarios para nuestro trabajo. Entre estas variables se encuentra el ID del cliente asignado por la empresa, la edad, el sexo y la región del cliente, así como métricas de uso de la TCM, en particular si se utilizó la tarjeta el primer trimestre y el monto de compras durante este mismo periodo.
+
 ## 1.2 Metodología
+
+La metología a utilizar consiste en:
+
+\begin{enumerate}
+  \item Presentar y formalizar cada una de las hipótesis.
+  \item Realizar un análisis gráfico de los datos pertinentes al problema.
+  \item Aplicar un test estadístico adecuado.
+\end{enumerate}
 
 # 2 Hipótesis a Cubrir
 
 ## 2.1 Bajo uso
 
-La primera hipótesis planteada es que el porcentaje de uso de la TCM, en el primer trimestre del 2022, ha disminuido con respecto al uso en el 2021, que corresponde a un 62%.
+La primera hipótesis planteada es que el porcentaje de uso de la TCM, en el primer trimestre del 2022, ha disminuido con respecto al uso en el 2021, que fue de un *62%*.
 
 ```{r H1 - uso tarjeta, echo=FALSE}
 n <- nrow(datos_tcm)
@@ -72,7 +67,7 @@ porcentaje_2022 <- paste0(as.character(100*round(uso_tarjeta_2022, 2)), '%')
 
 A partir de los datos vemos que el porcentaje de uso en el año 2022 corresponde a `r porcentaje_2022`. Podemos ver una comparación entre ambas cantidades en la Figura 1.
 
-```{r H1 - comparacion prop, echo=FALSE, out.width="61%", fig.height=3, fig.align='center'}
+```{r H1 - comparacion prop, echo=FALSE, out.width="61%", fig.height=3, fig.align='center', fig.cap="Porcentaje uso tarjeta años 2021 y 2022"}
 ggplot(tibble(uso = c(uso_tarjeta_2021, uso_tarjeta_2022),
               año = c('2021', '2022'))) +
   geom_col(mapping = aes(x = año, y = uso), fill = c('salmon', 'turquoise')) +
@@ -83,32 +78,31 @@ ggplot(tibble(uso = c(uso_tarjeta_2021, uso_tarjeta_2022),
   scale_y_continuous(labels = scales::percent, limits = c(0, 1))
 ```
 
-Se puede observar en el gráfico que efectivamente el uso de la tarjeta parece ser menor para el primer trimestre de 2022 en comparación con el mismo periodo en el año 2021.
+Se puede observar en el gráfico que efectivamente el uso de la tarjeta parece ser menor para el primer trimestre del 2022, en comparación con el mismo periodo del año 2021.
 
-Ahora, proponemos un test binomial exacto para confirmar si hallazgos son significativos. Este test es adecuado pues permite establecer si una muestra de datos binarios proviene de una población con proporción menor a un valor dado.
+Ahora, proponemos un test binomial exacto para confirmar si los hallazgos son significativos. Este test es adecuado pues permite establecer si una muestra de datos binarios proviene de una población con proporción menor a un valor dado.
 
 ```{r H1 - test binomial exacto, include=FALSE}
-binom.test(x = sum(datos_tcm$Uso2022),
+test_binom = binom.test(x = sum(datos_tcm$Uso2022),
            n = n,
            p = uso_tarjeta_2021,
            alternative = 'less')
+valor_p_h1 = test_binom$p.value
 ```
 
-Si relajamos algunas exigencias, en particular el nivel de significancia a un $10\%$, concluimos que hay evidencia en favor de que la disminución en el uso de la tarjeta es estadísticamente significativa.
+Específicamente, tenemos que nuestra hipótesis nula es que el porcentaje de uso *no* ha disminuido. El test nos entrega un valor-p de `r round(valor_p_h1, 3)`, así, considerando un nivel de significancia de $\alpha = 0.05$, no tenemos evidencia suficiente para rechazar esta hipótesis. Presentamos algunos comentarios adicionales en la conclusión del informe. 
 
 ## 2.2 Montos
 
 En esta sección se estudia la hipótesis de que el monto promedio utilizado en el mes de Marzo  de 2022 es mayor al monto promedio utilizado en el mismo mes del año 2021.
 
 
-Para esto, primero calculamos este promedio para cada mes. Notamos que existe una cantidad importante de clientes con monto 0. Esto se debe a que hay clientes que no utilizan su tarjeta durante Marzo 2022. Para este análisis, solo se considera el monto tranzado por clientes que sí registran uso en su tarjeta para este mes.
-
 ```{r H2 - clientes que compran, echo=FALSE}
 datos_tcm_compras <- datos_tcm_tibble %>% 
   dplyr::filter(UsoMarzo == 1)
 ```
 
-```{r H2 - promedio compras 2022}
+```{r H2 - promedio compras 2022, echo=FALSE}
 monto_promedio_marzo_2021 <- 400
 
 monto_promedio_marzo_2022 <- datos_tcm_compras %>% 
@@ -116,11 +110,12 @@ monto_promedio_marzo_2022 <- datos_tcm_compras %>%
   as.numeric()
 ```
 
-Obtenemos que el monto promedio en marzo del 2022 es `r round(monto_promedio_marzo_2022, 2)`. Ahora se verificará que la diferencia encontrada es estadísticamente significativa.
+
+Para el cálculo del monto promedio utilizado en marzo de 2022, solo se considera el monto tranzado por clientes que sí registran uso en su tarjeta para este mes. Se obtiene así que el monto promedio en marzo del 2022 es `r round(monto_promedio_marzo_2022, 2)`. Ahora se verificará que la diferencia encontrada es estadísticamente significativa.
 
 Una alternativa es utilizar un _test-t_, sin embargo para que los resultados sean válidos se debe asegurar que los datos provienen de una distribución Normal.
 
-En las siguientes figuras se estudia el supuesto de normalidad de manera gráfica mediante estimación de kernel y gráfico QQ.
+En la figura 2 se estudia el supuesto de normalidad de manera gráfica mediante estimación de densidad y gráfico QQ-Norm.
 
 ```{r H2 - supuesto normalidad - densidad, echo=FALSE}
 # Aca podríamos ver cómo combinar dos plots, creo que el paquete patchwork es bueno
@@ -158,7 +153,7 @@ test_diff = wilcox.test(x = datos_tcm_compras$MontoMarzo,
             alternative = 'greater')
 ```
 
-Para el test de Wilcoxon se tiene un Valor-P de `r test_diff$p.value %>% round(digits = 4)`. En consecuencia, encontramos que hay evidencia en favor de que la diferencia es significativa.
+Para el test de Wilcoxon se tiene un Valor-P de `r test_diff$p.value %>% round(digits = 4)`. En consecuencia, aceptamos la hipótesis que el promedio de compras en marzo de 2022 fue mayor que en marzo de 2021.
 
 ```{r H2 - test t, include = FALSE}
 test_diff_t = t.test(x = datos_tcm_compras$MontoMarzo,
@@ -166,14 +161,10 @@ test_diff_t = t.test(x = datos_tcm_compras$MontoMarzo,
        alternative = 'greater')
 ```
 
-Ahora, en favor de la comparación, aplicamos un test t. Si asumimos que el tamaño de muestra es lo suficientemente grande, la aplicación de este test se valida con resultados asintóticos. Se observan resultados consecuentes en ambos test, pues para para el _test-t_ el valor -P  es `r test_diff_t$p.value %>% round(digits = 4)`
-
-
-Vemos que en ambos casos rechazamos la hipótesis que el monto del 2022 es menor al del 2021, por lo que aceptamos que fue superior al del 2021...
 
 ## 2.3 Antiguos
 
-En esta sección se estudia la hipótesis de que la diferencia en los montos medios tranzados por clientes antiguos y nuevos es de cien mil. Para eso, segmentamos en clientes antiguos y nuevos. De manera similar como en la sección _2.2_, no consideramos clientes que no registran uso de su tarjeta en el periodo examinado.
+En esta sección se estudia la hipótesis de que, entre quienes utilizaron su tarjeta, los montos medios tranzados por clientes antiguos es cien mil pesos menor que el de clientes nuevos. Para eso, segmentamos en clientes antiguos y nuevos. Tampoco consideramos clientes que no registran uso de su tarjeta en el periodo examinado.
 
 ```{r H3 - separacion clientes, echo=FALSE}
 clientes_antiguos <- datos_tcm_tibble %>% 
@@ -193,9 +184,7 @@ media_nuevos <- mean(clientes_nuevos$MontoAcum)
 
 Tenemos que hay `r n_antiguos` clientes antiguos y `r n_nuevos` clientes nuevos presentes en la base de datos entregada. Además, los montos medios de cada grupo son `r  media_antiguos %>% round(digits = 4)` y `r media_nuevos %>% round(digits = 4)`, respectivamente.
 
-Queremos ocupar un test t para dos muestras, así que vemos normalidad...
-
-Ahora se estudia si los datos siguen una distribución Normal mediante métodos gráficos: primero por estimación kernel y luego mediante QQ-plot.
+Queremos ocupar un test t para dos muestras. En la figura 3 estudiamos si los datos siguen una distribución Normal.
 
 ```{r H3 - supuesto normalidad, echo = FALSE, fig.cap="Test gráficos de normalidad media montos compra por segmento"}
 # Acá usemos patchwork para juntar los gráficos
@@ -210,7 +199,7 @@ dens2_antiguos = ggplot(clientes_antiguos) +
 ## QQ-plot antiguos
 qq2_antiguos = ggplot(clientes_antiguos) +
   geom_qq_line(aes(sample = MontoAcum), color = "salmon", lwd = 2) +
-  geom_qq(aes(sample = MontoAcum)) +
+  geom_qq(aes(sample = MontoAcum), size = 0.5) +
   labs(title = 'QQ-Plot montos compra', subtitle = 'Marzo 2022, clientes antiguos',
        x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
 
@@ -224,23 +213,22 @@ dens2_nvos = ggplot(clientes_nuevos) +
 ## QQ-plot antiguos
 qq2_nvos = ggplot(clientes_nuevos) +
   geom_qq_line(aes(sample = MontoAcum), color = "salmon", lwd = 2) +
-  geom_qq(aes(sample = MontoAcum)) +
+  geom_qq(aes(sample = MontoAcum), size = 0.5) +
   labs(title = 'QQ-Plot montos compra', subtitle = 'Marzo 2022, clientes nuevos',
        x = 'Cuantiles teóricos', y = 'Cuantiles muestrales')
 
 (dens2_antiguos + qq2_antiguos) / (dens2_nvos + qq2_nvos)
 ```
 
-De manera similar como en la seccion _2.2_, se confirman los hallazgos con test formales: usamos Shapiro-Wilk. En los clientes nuevos además utilizamos el test de Kolmogorov-Smirnov al obtener un valor-p bastante cercano a 0.05...
-
 ```{r H3 - supuesto normalidad formal, include=FALSE}
-shapiro.test(clientes_antiguos$MontoAcum)
-
-shapiro.test(clientes_nuevos$MontoAcum)
-ks.test(scale(clientes_nuevos$MontoAcum), y = 'pnorm')
+shp_antiguos = shapiro.test(clientes_antiguos$MontoAcum)$p.value %>% round(digits = 4)
+shp_nvos = shapiro.test(clientes_nuevos$MontoAcum)$p.value %>% round(digits = 4)
+ks_antiguos = ks.test(scale(clientes_nuevos$MontoAcum), y = 'pnorm')$p.value %>% round(digits = 4)
 ```
 
-No se encuentra evidencia para rechazar normalaidad. En consecuencia se aplica un _test-t_ para estdudiar la diferencia de medias. Se asume que las varianzas son desconocidas. Tenemos que ver si usamos varianzas iguales y desconocidas o diferentes y desconocidas mediante la función de R `var.test`
+Como en la seccion _2.2_, se confirman los hallazgos con el test de Shapiro-Wilk. Especificamente, se obtuvieron valores-p iguales a `r shp_antiguos` y `r shp_nvos` para clientes antiguos y nuevos respectivamente. En los clientes nuevos además utilizamos el test de Kolmogorov-Smirnov al obtener un valor-p = `r ks_antiguos`.
+
+
 
 ```{r H3 - Test varianzas, include=FALSE}
 test_var = var.test(x = clientes_antiguos$MontoAcum,
@@ -248,7 +236,7 @@ test_var = var.test(x = clientes_antiguos$MontoAcum,
          alternative = 'two.sided')
 ```
 
-Se rechaza dicho test con un valor-P = `r  test_var$p.value %>% round(digits = 4)`, por lo que trabajamos varianzas diferentes. 
+Como no hay evidencia para rechazar normalidad, se aplica un _test-t_ para estudiar la diferencia de medias, asumiendo varianzas desconocidas. Tenemos que ver si usamos varianzas iguales y desconocidas o diferentes y desconocidas mediante la función de R `var.test`. Se rechaza dicho test con un valor-P = `r  test_var$p.value %>% round(digits = 4)`, por lo que trabajamos varianzas diferentes. 
 
 ```{r H3 - Test t final, include=FALSE}
 test_t_final = t.test(x = clientes_nuevos$MontoAcum,
@@ -258,13 +246,13 @@ test_t_final = t.test(x = clientes_nuevos$MontoAcum,
        var.equal = FALSE)
 ```
 
-Vemos entonces que no podemos rechazar la hipótesis nula, pues encontramos en el _test-t_ un valor-P =  `r test_t_final$p.value %>%  round(digits = 4)`.
+Para el _test-t_ se tiene un valor-P =  `r test_t_final$p.value %>%  round(digits = 4)`. Luego, no es posible rechazar la hipótesis de que el promedio de gasto de clientes antiguos es cien mil pesos menor que el de clientes nuevos.
 
 ## 2.4 Atributos
 
 Agrupamos los datos de edades en los grupos correspondientes...
 
-```{r H3 - agrupacion edades, echo=FALSE}
+```{r H4 - agrupacion edades, echo=FALSE}
 datos_tcm_tibble_edadcat <- datos_tcm_tibble %>% 
   dplyr::mutate(edad_cat = case_when(
     Edad <= 35 ~ 0,
@@ -273,10 +261,100 @@ datos_tcm_tibble_edadcat <- datos_tcm_tibble %>%
   ))
 ```
 
-Acá rellenamos con gráficos si no nos pasamos de las 5 páginas...
+### Frecuencia de uso
 
-Acá van los ANOVAS...
+```{r echo=FALSE, include=FALSE}
 
-Concluimos
+anova1 = aov(datos_tcm_tibble_edadcat$Uso2022~datos_tcm_tibble_edadcat$edad_cat)
+summary(anova1)
+
+anova2 = aov(datos_tcm_tibble_edadcat$Uso2022~datos_tcm_tibble_edadcat$`Sex(1=Fem)`)
+summary(anova2)
+
+anova3 = aov(datos_tcm_tibble_edadcat$Uso2022~datos_tcm_tibble_edadcat$`Reg (1=RM)`)
+summary(anova3)
+
+mi.palette = c("#FE1F14", "#B1150E", "#FE7872", "#A52C94", "#C06BB4", "#EB9C3A", "#F3C388")
+
+
+# gráfico malo
+bx_1 = ggplot(data = datos_tcm_tibble_edadcat) + aes( y = MontoAcum, x =  as.factor(edad_cat), color = as.factor(edad_cat)) + 
+  geom_boxplot() + scale_color_manual(values = mi.palette) + 
+  xlab("Grupo de edad") + ylab("Monto utilizado TCM 2022") + 
+  labs(title = "Distribucion monto acumulado",
+       subtitle = "para cada grupo etario.") + theme(legend.title = element_blank(), legend.position = "bottom") +
+  scale_x_discrete(labels = NULL)
+
+
+```
+
+### Monto utilizado en 2022
+
+```{r echo=FALSE, include=FALSE}
+# filtrar por solo clientes que utilizan
+datos_tcm_tibble_edadcat2 = datos_tcm_tibble_edadcat %>% filter(Uso2022==1)
+
+anova4 = aov(datos_tcm_tibble_edadcat2$MontoAcum~datos_tcm_tibble_edadcat2$edad_cat)
+summary(anova4)
+
+anova5 = aov(datos_tcm_tibble_edadcat2$MontoAcum~datos_tcm_tibble_edadcat2$`Sex(1=Fem)`)
+summary(anova5)
+
+anova6 = aov(datos_tcm_tibble_edadcat2$MontoAcum~datos_tcm_tibble_edadcat2$`Reg (1=RM)`)
+summary(anova6)
+
+bx_4 = ggplot(data = datos_tcm_tibble_edadcat) + aes( y = MontoAcum, x =  as.factor(edad_cat), color = as.factor(edad_cat)) + 
+  geom_boxplot() + scale_color_manual(values = mi.palette) + 
+  xlab("Grupo de edad") + ylab("Monto utilizado TCM 2022") + 
+  theme(legend.title = element_blank(), legend.position = "bottom") +
+  scale_x_discrete(labels = NULL)
+
+bx_5 = ggplot(data = datos_tcm_tibble_edadcat) + aes( y = MontoAcum,
+                                                      x = {datos_tcm_tibble_edadcat$`Sex(1=Fem)` %>% as.factor},
+                                                      color = {datos_tcm_tibble_edadcat$`Sex(1=Fem)` %>% as.factor}) + 
+  geom_boxplot() + scale_color_manual(values = mi.palette) + 
+  xlab("Sexo") + ylab("Monto utilizado TCM 2022") + 
+  theme(legend.title = element_blank(), legend.position = "bottom") +
+  scale_x_discrete(labels = NULL)
+
+bx_6 = ggplot(data = datos_tcm_tibble_edadcat) + aes( y = MontoAcum, 
+                                                      x =  {datos_tcm_tibble_edadcat$`Reg (1=RM)`%>% as.factor}, 
+                                                      color = {datos_tcm_tibble_edadcat$`Reg (1=RM)`%>% as.factor}) + 
+  geom_boxplot() + scale_color_manual(values = mi.palette) + 
+  xlab("Región") + ylab("Monto utilizado TCM 2022") + 
+  theme(legend.title = element_blank(), legend.position = "bottom") +
+  scale_x_discrete(labels = NULL)
+
+
+```
+
+
+```{r echo=FALSE, out.width="100%", fig.align='center', warning=FALSE, message=FALSE}
+
+bx_4 + bx_5 + bx_6
+
+```
+
+
 
 # 3 Conclusión
+
+Obtuvimos que
+
+\begin{enumerate}
+\item No tenemos evidencia suficiente para concluir que el porcentaje de uso de la tarjeta ha disminuido. De todas maneras, creemos que en este caso podemos relajar el nivel de significancia y declarar que hay evidencia.
+\item Sí tenemos evidencia estadística para declarar que el comité de promociones ha focalizado apropiadamente las ofertas.
+\item En cuanto a la acusación al área de fidelización, obtenemos que no existe evidencia estadística suficiente.
+\item En cuanto a los atributos, tenemos evidencia suficiente para decir que la frecuencia de uso de la tarjeta depende de la edad de la persona, por lo que deberíamos focalizar las promociones en los grupos que menos las utilizan 
+\end{enumerate}
+
+Así, recomendamos a la empresa que ... 
+
+
+
+```{r}
+
+
+
+```
+
