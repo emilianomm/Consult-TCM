@@ -250,7 +250,7 @@ Para el _test-t_ se tiene un valor-P =  `r test_t_final$p.value %>%  round(digit
 
 ## 2.4 Atributos
 
-Agrupamos los datos de edades en los grupos correspondientes...
+En esta sección se estudia la hipótesis de que hay una comportamiento diferente en frecuencia de uso de la tarjeta y los montos transados, en función de la edad (como categoría), el sexo o región. Para esto, primero graficamos para cada categoría la distribución de los montos acumulados (figura 4). Por último se realiza un análisis _anova_ para cada categoría, utilizando como variable respuesta el monto acumulado y el uso de la tarjeta.
 
 ```{r H4 - agrupacion edades, echo=FALSE}
 datos_tcm_tibble_edadcat <- datos_tcm_tibble %>% 
@@ -261,10 +261,9 @@ datos_tcm_tibble_edadcat <- datos_tcm_tibble %>%
   ))
 ```
 
-### Frecuencia de uso
 
 ```{r echo=FALSE, include=FALSE}
-
+### Frecuencia de uso
 anova1 = aov(datos_tcm_tibble_edadcat$Uso2022~datos_tcm_tibble_edadcat$edad_cat)
 summary(anova1)
 
@@ -288,9 +287,10 @@ bx_1 = ggplot(data = datos_tcm_tibble_edadcat) + aes( y = MontoAcum, x =  as.fac
 
 ```
 
-### Monto utilizado en 2022
+
 
 ```{r echo=FALSE, include=FALSE}
+### Monto utilizado en 2022
 # filtrar por solo clientes que utilizan
 datos_tcm_tibble_edadcat2 = datos_tcm_tibble_edadcat %>% filter(Uso2022==1)
 
@@ -329,12 +329,13 @@ bx_6 = ggplot(data = datos_tcm_tibble_edadcat) + aes( y = MontoAcum,
 ```
 
 
-```{r echo=FALSE, out.width="100%", fig.align='center', warning=FALSE, message=FALSE}
+```{r echo=FALSE, out.width="100%", fig.align='center', warning=FALSE, message=FALSE, fig.cap="Box-Plot categorías vs monto acumulado", fig.height=3}
 
 bx_4 + bx_5 + bx_6
 
 ```
 
+Según el análisis, hay evidencia para rechazar la hipótesis solamente para la frecuencia del uso de la tarjeta en función de la edad. 
 
 
 # 3 Conclusión
